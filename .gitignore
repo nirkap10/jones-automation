@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Generated screenshots (kept out of version control; produced at runtime)
+screenshots/*.png
+
+# Playwright
+test-results/
+playwright-report/
+.cache/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

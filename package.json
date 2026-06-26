@@ -1,13 +1,27 @@
 {
   "name": "jones-automation-exercise",
   "version": "1.0.0",
-  "description": "Playwright automation for Jones QA exercise",
+  "description": "Playwright automation for the Jones QA take-home exercise (https://test.netlify.app/)",
   "main": "automation.js",
+  "author": "Nir Kaplan",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node automation.js",
-    "install-browsers": "npx playwright install chromium"
+    "test": "node automation.js",
+    "install-browsers": "playwright install chromium",
+    "postinstall": "playwright install chromium"
   },
+  "keywords": [
+    "playwright",
+    "automation",
+    "qa",
+    "e2e"
+  ],
   "dependencies": {
-    "playwright": "^1.44.0"
+    "playwright": "^1.61.1"
   }
 }

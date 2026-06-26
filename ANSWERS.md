@@ -1,4 +1,5 @@
 # Jones Automation Exercise — Written Answers
+
 **Candidate:** Nir Kaplan
 **Date:** June 2026
 
@@ -6,147 +7,158 @@
 
 ## Part A — Playwright Automation
 
-See `automation.js` in this submission.
+The automation lives in [`automation.js`](./automation.js). Setup and run
+instructions are in the [`README.md`](./README.md); in short:
 
-**How to run:**
 ```bash
-npm install
-npx playwright install chromium
-npm start
+npm install      # installs Playwright + Chromium
+npm start        # runs the automation
 ```
 
-The script will:
-1. Open https://test.netlify.app/ in a Chromium browser.
-2. Fill in Name, Email, Phone, Company, and Website.
-3. **(Bonus)** Change Number of Employees from 1–10 to 51–500.
-4. Take a full-page screenshot saved as `screenshot_before_submit_<timestamp>.png` (e.g. `screenshot_before_submit_2026-06-25_14-30-05.png`) in the same directory as the script, so each run produces a uniquely named file and no `screenshots/` folder is required.
-5. Click "Request a call back".
-6. Log a success message to the console when the Thank You page is reached.
+**What it does**
+
+1. Opens <https://test.netlify.app/>.
+2. Fills **Name, Email, Phone, Company, Website** — each value is read back and
+   asserted, so a field that silently fails to fill is caught immediately.
+3. **(Bonus)** Changes **Number of Employees** from `1-10` to `51-500`.
+4. Saves a full-page screenshot to `screenshots/before_submit_<timestamp>.png`
+   before submitting.
+5. Clicks **"Request a call back"**.
+6. Verifies the Thank You page by asserting **both** the resulting URL
+   (`/thank-you.html`) **and** the on-page "Thank You" text, then logs success.
+
+The script is written as a genuine check rather than a one-shot script: it exits
+`0` on success and `1` on failure, and on any error it captures
+`screenshots/error_<timestamp>.png` for debugging.
 
 ---
 
 ## Part B — UI Mock-up Analysis: Account Information / Billing Widget
 
+The prompt asks me to consider all functional aspects — **Security, Usability,
+Performance, etc.** — so the findings below are grouped by category, each with a
+severity. I separate what is **visible in the static mock-up** from what **must be
+verified against the live implementation**, because a screenshot cannot reveal
+runtime behavior.
+
 ### a. Problems Found
 
-#### 🟠 HIGH — Functional / Validation
+#### 🔒 Security
 
-| # | Issue | Details |
-|---|-------|---------|
-| 1 | **CVV / CVC field is missing from the form** | The mockup clearly shows no CVV field. Payment processors require CVV to authorize a transaction — without it, the form cannot successfully process payments. This is a functional blocker visible directly in the design. |
-| 2 | **"State or Province" label vs. "Select a state" dropdown — inconsistent** | The label suggests international support but the dropdown says "Select a state" — this is a visible inconsistency in the design that will break the experience for non-US users. |
-| 3 | **Payment Amount has no currency symbol** | The amount shown is `30.00` with no indication of currency (USD? EUR?). Users cannot confirm what they are actually being charged. |
+| Sev.       | Issue                          | Why it matters                                                                                                                                                                                  |
+| ---------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🔴 **Critical** | **No CVV / CVC field**         | Card networks require the CVV to authorize a card-not-present transaction. Without it the form cannot complete a payment — this is a functional **and** security blocker, visible in the design. |
+| 🟠 High *(verify)* | **Card number masking**        | Does the field mask the number after entry (e.g. `•••• •••• •••• 4242`)? Unmasked PANs are exposed to shoulder-surfing and screenshots. Not visible in a mock-up — must be tested live.          |
+| 🟠 High *(verify)* | **Transport security (HTTPS)** | Payment pages must be served over TLS. Cannot be confirmed from an image; verify the live page and that the form posts to an HTTPS endpoint.                                                     |
+| 🟡 Medium *(verify)* | **Input sanitization / XSS**   | Free-text fields (name, address) must safely escape input. Verify a payload such as `<script>alert(1)</script>` is neutralized.                                                                 |
+| 🟡 Medium *(verify)* | **Re-authentication**          | When *editing* saved billing details, is the user re-prompted for a password? Protects against account takeover. Not shown in this single screen.                                              |
 
+#### ⚙️ Functional / Validation
 
-#### 🟡 MEDIUM — Usability
+| Sev.      | Issue                                              | Why it matters                                                                                                                                              |
+| --------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 🟠 High   | **No currency on "Payment Amount: 30.00"**         | The user cannot tell if they are charged USD, EUR, etc. For a *global* SaaS this is a real risk — display the currency (e.g. `$30.00 USD`).                |
+| 🟡 Medium *(verify)* | **Expiration year may allow past years**           | If "Select year" lists years already elapsed, an expired card can be submitted. Verify the dropdown only offers the current year and forward.              |
+| 🟡 Medium *(verify)* | **Postal code "(no dashes)" vs. global addresses** | The hint and "no dashes" rule suit US ZIPs but break Canadian/UK codes (`M5V 3L9`). Verify the field accepts international formats for a global product.    |
 
-| # | Issue | Details |
-|---|-------|---------|
-| 4 | **Card Type dropdown is redundant** | Most modern billing forms auto-detect the card type from the card number prefix (Visa starts with 4, Mastercard with 5, etc.). Requiring manual selection introduces human error. |
+#### 🧭 Usability
 
+| Sev.      | Issue                                                   | Why it matters                                                                                                                       |
+| --------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 🟠 High   | **Label vs. control mismatch: "State or Province" → "Select a state"** | The label promises international support but the dropdown says "Select a state" — confusing/blocking for non-US users.               |
+| 🟡 Medium | **Redundant "Card Type" dropdown**                      | Card type can be auto-detected from the card-number prefix (Visa `4`, Mastercard `5`…). Manual selection adds friction and error.    |
+| 🟡 Medium | **"MI" abbreviation is unclear**                        | "MI" (middle initial) is US-centric and not obvious internationally. Use a clear label or drop it.                                  |
+| 🟢 Low    | **"Cancel" has no confirmation**                        | Clicking Cancel after filling the form could discard all input with no warning. Confirm before discarding.                          |
 
-#### 🔍 NEEDS VERIFICATION — Cannot confirm from mockup alone
+#### ♿ Accessibility *(verify)*
 
-These are risks that are not visible in a static mockup but must be tested and confirmed during implementation:
+| Sev.      | Issue                          | Why it matters                                                                                                                  |
+| --------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| 🟡 Medium | **Label association & errors** | Verify every input has a programmatic `<label>`, the required `*` is announced (not color-only), and errors are screen-reader accessible. |
 
-| # | Risk | What to verify |
-|---|------|----------------|
-| 5 | **Card number masking** | Does the field mask the number after input (e.g. ●●●● ●●●● ●●●● 4242)? A mockup cannot show runtime behavior — this must be tested in the live form. |
-| 6 | **HTTPS / SSL** | Is the page served over HTTPS? This cannot be determined from a mockup. Must be confirmed in the actual environment. |
-| 7 | **Re-authentication before changing payment info** | Does the flow require the user to confirm their password before updating billing details? Not visible in this mockup — needs confirmation in the full user flow. |
-| 8 | **Postal Code format restrictions** | Does the field only accept numeric input? International postal codes contain letters (e.g. Canadian `M5V 3L9`). Needs to be tested with non-US inputs. |
+#### ⚡ Performance *(verify)*
+
+| Sev.   | Issue                | Why it matters                                                                                                            |
+| ------ | -------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 🟢 Low | **Page/asset load**  | Not measurable from a mock-up. On the live form, verify load time, that dropdowns (year/state) populate without lag, and that submit gives prompt feedback (spinner/disabled button) so users don't double-submit. |
 
 ---
 
 ### b. Sample Test Cases
 
----
+**TC-001 — Card Number validation**
 
-**Test Case 1 — Card Number Validation**
-
-| Field | Value |
-|-------|-------|
-| **Test Case ID** | TC-001 |
-| **Title** | Card number field rejects invalid formats |
-| **Priority** | High |
+| Field        | Value                                                |
+| ------------ | ---------------------------------------------------- |
+| **ID**       | TC-001                                               |
+| **Priority** | High                                                 |
 | **Precondition** | User is on the Account Information billing form |
 
-**Steps:**
-
-1. Leave the Card Number field empty → Click Continue.
-   - **Expected:** Required field error shown, form does not submit.
-2. Enter `1234-5678-9012-3456` (with dashes) → Click Continue.
-   - **Expected:** Validation error: "No dashes or spaces allowed."
-3. Enter `1234 5678 9012 3456` (with spaces) → Click Continue.
-   - **Expected:** Validation error: "No dashes or spaces allowed."
-4. Enter a 15-digit number → Click Continue.
-   - **Expected:** Validation error: card number must be 16 digits.
-5. Enter a valid 16-digit Visa number (`4111111111111111`) → Click Continue.
-   - **Expected:** Form proceeds to the next step.
+| # | Step                                       | Expected result                                          |
+| - | ------------------------------------------ | -------------------------------------------------------- |
+| 1 | Leave Card Number empty, click **Continue** | Required-field error; form does not submit.              |
+| 2 | Enter `1234-5678-9012-3456` (dashes)        | Validation error — "no dashes or spaces" per the hint.   |
+| 3 | Enter `1234 5678 9012 3456` (spaces)        | Validation error — "no dashes or spaces".                |
+| 4 | Enter a 15-digit number                     | Validation error — card number must be 16 digits.        |
+| 5 | Enter valid Visa `4111111111111111`         | Accepted; form proceeds.                                 |
 
 ---
 
-**Test Case 2 — Full Form Submission with Valid Data**
+**TC-002 — Successful end-to-end submission**
 
-| Field | Value |
-|-------|-------|
-| **Test Case ID** | TC-002 |
-| **Title** | Successful payment form submission end-to-end |
-| **Priority** | Critical |
-| **Precondition** | User has a valid test Visa card (e.g. Stripe test card `4242424242424242`) |
+| Field        | Value                                                       |
+| ------------ | ---------------------------------------------------------- |
+| **ID**       | TC-002                                                      |
+| **Priority** | Critical                                                   |
+| **Precondition** | User has a valid test card (e.g. Stripe `4242 4242 4242 4242`) |
 
-**Steps:**
-
-1. Select Card Type: Visa.
-2. Enter Card Number: `4242424242424242`, then click or tab to the next field.
-   - **Expected:** The card number is masked to show only the last 4 digits (e.g. `●●●● ●●●● ●●●● 4242`).
-3. Enter First Name: `Test`, MI: `Q`, Last Name: `User`.
-4. Enter Billing Street Address: `123 Main St`.
-5. Enter City: `New York`, State: `New York`, Postal Code: `10001`.
-6. Select Expiration Month: `12`, Year: one year in the future.
-7. Click **Continue**.
-
-**Expected Results:**
-- Form submits without errors.
-- User is navigated to a confirmation/summary page.
-- Payment Amount of **30.00** (with currency clearly shown) is confirmed.
+| # | Step                                                                  | Expected result                                                  |
+| - | --------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 1 | Select Card Type **Visa**; enter card number `4242424242424242`        | (Verify) number masks to last 4 after blur.                     |
+| 2 | First Name `Test`, MI `Q`, Last Name `User`                            | Accepted.                                                       |
+| 3 | Street `123 Main St`; City `New York`; State `New York`; Postal `10001` | Accepted.                                                       |
+| 4 | Expiration Month `12`, Year = current year + 1                          | Accepted (future date).                                         |
+| 5 | Click **Continue**                                                     | Submits with no errors; navigates to a confirmation page showing the amount **with currency**. |
 
 ---
 
-**Test Case 3 — Negative Testing: Wrong Input Types**
+**TC-003 — Negative / boundary input**
 
-| Field | Value |
-|-------|-------|
-| **Test Case ID** | TC-003 |
-| **Title** | Form fields reject invalid input types |
-| **Priority** | High |
+| Field        | Value                                                |
+| ------------ | ---------------------------------------------------- |
+| **ID**       | TC-003                                               |
+| **Priority** | High                                                 |
 | **Precondition** | User is on the Account Information billing form |
 
-**Steps:**
-
-1. Enter numbers only (`12345`) in the First Name field → Click Continue.
-   - **Expected:** Validation error: name fields should not accept numbers.
-2. Enter letters only (`abcdefg`) in the Card Number field → Click Continue.
-   - **Expected:** Validation error: card number must contain digits only.
-3. Enter a negative number (`-30`) in the Postal Code field → Click Continue.
-   - **Expected:** Validation error: postal code cannot be negative.
-4. Enter special characters (`<script>alert(1)</script>`) in the Cardholder Name field → Click Continue.
-   - **Expected:** Input is rejected or safely escaped — no script executes, no error crashes the page.
+| # | Step                                                            | Expected result                                          |
+| - | --------------------------------------------------------------- | -------------------------------------------------------- |
+| 1 | First Name = `12345` (digits only)                              | Validation error — name should not be all numbers.       |
+| 2 | Card Number = `abcdefg` (letters)                               | Validation error — digits only.                          |
+| 3 | Expiration Year = a past year (if selectable)                   | Validation error — card is expired. *(See bug above.)*   |
+| 4 | Cardholder Name = `<script>alert(1)</script>`                   | Input is escaped/rejected; no script executes, no crash. |
 
 ---
 
 ### c. Suggested Product Solution for the Most Severe Bug
 
-**Most Severe Bug: No CVV / CVC field (Item #1)**
+**Most severe bug: the missing CVV / CVC field (Security — Critical).**
 
-The CVV field is visibly missing from the design. Payment processors require CVV as part of the authorization flow — without it, the form is functionally broken and payments will be declined. This is the most critical issue because it blocks the entire purpose of the widget.
+It is the most severe because it both **blocks the core function** (no payment can
+be authorized without a CVV) **and** is a security gap, and it is plainly visible in
+the design rather than a maybe.
 
-**Recommended Solution:**
+**Recommendation**
 
-1. **Add a CVV/CVC field** (required, 3–4 digits, never stored server-side) next to the Expiration date, which is the standard placement users expect.
+1. **Add a required CVV/CVC field** (3–4 digits) next to the Expiration date — the
+   placement users expect. Validate length against the selected card type
+   (Amex = 4, others = 3).
+2. **Never store the CVV.** PCI-DSS explicitly **prohibits storing CVV after
+   authorization** — pass it straight to the payment processor and discard it. This
+   is the key compliance point: collect it, use it once, never persist it.
+3. **Mask the card number** after the field loses focus (show only the last 4) and
+   **serve the page over HTTPS** with a visible trust indicator
+   ("🔒 Secured by [provider]") near the submit button.
 
-2. **Mask the card number after entry** — show only the last 4 digits once the user moves to the next field (e.g. `●●●● ●●●● ●●●● 4242`). This prevents shoulder-surfing and screenshot exposure, and should be verified during implementation.
-
-3. **Display a visible HTTPS / trust indicator** (padlock icon + "Secured by [Payment Provider]") above the form to build user trust at the moment of payment.
-
-> These changes combined bring the widget into PCI-DSS compliance and protect both the business and its customers from financial fraud and regulatory penalties.
+Together these bring the widget in line with PCI-DSS and protect both the business
+and its customers from declined payments, fraud, and regulatory penalties — while
+removing the blocker that currently prevents the form from working at all.
