@@ -46,7 +46,7 @@ the console reports success and the exit code reflects the result.
 3. **Bonus:** changes **Number of Employees** from `1-10` to `51-500`.
 4. Saves a full-page screenshot to `screenshots/before_submit_<timestamp>.png`.
 5. Clicks **"Request a call back"**.
-6. Verifies the Thank You page by asserting **both** the URL (`/thank-you.html`)
+6. Verifies the Thank You page by asserting **both** the URL (matches `/thank-you/`)
    **and** the on-page "Thank You" text, then logs success.
 
 On any failure it saves `screenshots/error_<timestamp>.png` and exits non-zero.

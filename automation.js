@@ -110,7 +110,7 @@ async function run() {
 
   try {
     log.step(`Opening ${CONFIG.url}`);
-    await page.goto(CONFIG.url, { waitUntil: 'networkidle' });
+    await page.goto(CONFIG.url, { waitUntil: 'domcontentloaded' });
     log.pass('Page loaded');
 
     log.step('Filling in the contact form');

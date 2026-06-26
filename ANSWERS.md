@@ -25,7 +25,7 @@ npm start        # runs the automation
    before submitting.
 5. Clicks **"Request a call back"**.
 6. Verifies the Thank You page by asserting **both** the resulting URL
-   (`/thank-you.html`) **and** the on-page "Thank You" text, then logs success.
+   (matches `/thank-you/`) **and** the on-page "Thank You" text, then logs success.
 
 The script is written as a genuine check rather than a one-shot script: it exits
 `0` on success and `1` on failure, and on any error it captures
@@ -66,7 +66,9 @@ runtime behavior.
 | Sev.      | Issue                                                   | Why it matters                                                                                                                       |
 | --------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | 🟠 High   | **Label vs. control mismatch: "State or Province" → "Select a state"** | The label promises international support but the dropdown says "Select a state" — confusing/blocking for non-US users.               |
-| 🟡 Medium | **Redundant "Card Type" dropdown**                      | Card type can be auto-detected from the card-number prefix (Visa `4`, Mastercard `5`…). Manual selection adds friction and error.    |
+| 🟠 High   | **No email / receipt field**                            | A billing form takes a payment but never asks where the confirmation/receipt should go. The user has no record of the charge.        |
+| 🟡 Medium | **Redundant "Card Type" dropdown, pre-set to VISA**     | Card type can be auto-detected from the card-number prefix (Visa `4`, Mastercard `5`…). It also **defaults to VISA** rather than an empty "Select", so a user who skips it can submit the wrong card type. Manual selection adds friction and error. |
+| 🟡 Medium | **Inconsistent required markers on Expiration**         | "Year" carries a `*` but "Month" does not, even though both are needed for a valid expiry date. Either the marker is missing or Month is wrongly optional. (Same class of issue as the State mismatch.) |
 | 🟡 Medium | **"MI" abbreviation is unclear**                        | "MI" (middle initial) is US-centric and not obvious internationally. Use a clear label or drop it.                                  |
 | 🟢 Low    | **"Cancel" has no confirmation**                        | Clicking Cancel after filling the form could discard all input with no warning. Confirm before discarding.                          |
 
@@ -97,10 +99,12 @@ runtime behavior.
 | # | Step                                       | Expected result                                          |
 | - | ------------------------------------------ | -------------------------------------------------------- |
 | 1 | Leave Card Number empty, click **Continue** | Required-field error; form does not submit.              |
-| 2 | Enter `1234-5678-9012-3456` (dashes)        | Validation error — "no dashes or spaces" per the hint.   |
-| 3 | Enter `1234 5678 9012 3456` (spaces)        | Validation error — "no dashes or spaces".                |
+| 2 | Enter `1234-5678-9012-3456` (dashes)        | Validation error — "no dashes or spaces" per the hint.\*  |
+| 3 | Enter `1234 5678 9012 3456` (spaces)        | Validation error — "no dashes or spaces".\*              |
 | 4 | Enter a 15-digit number                     | Validation error — card number must be 16 digits.        |
 | 5 | Enter valid Visa `4111111111111111`         | Accepted; form proceeds.                                 |
+
+> \* Steps 2–3 assume the "No dashes or spaces" hint is enforced as a **validation error**. It could instead mean the field **auto-strips** the formatting — both are reasonable designs, so the intended behavior should be confirmed against the spec; the test asserts the rejecting interpretation.
 
 ---
 
