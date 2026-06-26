@@ -86,7 +86,10 @@ async function fillField(page, selector, value, label) {
 /** Select a dropdown option and assert it was applied. */
 async function selectField(page, selector, value, label) {
   await page.waitForSelector(selector, { state: 'visible' });
-  await page.selectOption(selector, value);
+  // The #employees <option>s carry no value="" attribute, so their implicit
+  // value equals their visible text. Match on label explicitly rather than
+  // relying on that coincidence (a bare string would match value OR label).
+  await page.selectOption(selector, { label: value });
   const actual = await page.inputValue(selector);
   if (actual !== value) {
     throw new Error(`${label} not set correctly — expected "${value}", got "${actual}"`);
@@ -153,6 +156,6 @@ async function run() {
   }
 }
 
-run()
-  .then(() => process.exit(0))
-  .catch(() => process.exit(1));
+// On success, let the process exit naturally (exit code 0) so buffered stdout
+// is fully flushed. Only force a non-zero exit on failure for CI/smoke use.
+run().catch(() => process.exit(1));
